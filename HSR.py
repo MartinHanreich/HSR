@@ -74,7 +74,7 @@ eye_right_range = range(36, 42)
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(".\\shape_predictor_68_face_landmarks.dat")
 
-image = cv2.imread('.\\77.jpg')
+image = cv2.imread('.\\5.jpg')
 
 faces = detector(image)
 keypoints = []
@@ -99,7 +99,7 @@ for face in faces:
     eye_range = range(start, end + 1)
     #eye_range = eye_right_range
     for n in eye_range:
-        print(n)
+        #print(n)
         #if n >= start and n <= end:
         x = keypoints[n][0]
         y = keypoints[n][1]

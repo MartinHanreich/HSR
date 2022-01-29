@@ -14,7 +14,8 @@ USE_CAM = False
 #.\\man.jpg
 REPLACEMENT_IMG = ''
 #Only used if USE_CAM = False
-VIDEO_TO_PROCESS = '.\\jt.mp4'
+VIDEO_TO_PROCESS = '.\\videos\\sm.mp4'
+FLIP = False
 
 cv2.destroyAllWindows()
 
@@ -105,7 +106,8 @@ while(True):
         ret, image = cap.read()
     if not ret:
         break
-    #image = cv2.flip(image, 1)
+    if FLIP:
+        image = cv2.flip(image, 1)
     faces = detector(image)
     if len(faces) == 1:
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -324,10 +326,14 @@ while(True):
         body_face_mask = cv2.bitwise_not(body_head_mask)
         body_face_mask = cv2.fillConvexPoly(body_face_mask, convexhull_mouth, 255)
         body_face_mask = drawLines(convexhull_mouth, body_face_mask, (255, 255, 255))
-        cv2.imshow('Mask', body_new_face)
         
-        #cv2.imshow('FrameCopy', body_face_mask)
-        #key = cv2.waitKey()
+        #cv2.imshow('FrameCopy', body_new_face)
+        #key = cv2.waitKey(0)
+        image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
+        face_hsv = cv2.cvtColor(body_new_face, cv2.COLOR_BGR2HSV)
+        face_hsv[:, :, 0] = image_hsv[:, :, 0]
+        #body_new_face = cv2.cvtColor(face_hsv, cv2.COLOR_HSV2BGR)
+        cv2.imshow('Mask', body_new_face)
         #image = np.zeros((h, w, channels), np.uint8)
         body_maskless = cv2.bitwise_and(image, image, mask=body_face_mask)
         result = cv2.add(body_maskless, body_new_face)
@@ -339,7 +345,7 @@ while(True):
         #body_face_mask = cv2.fillConvexPoly(body_face_mask, convexhull_mouth_outer, 255)
         #cv2.imshow('body_face_mask', cv2.bitwise_not(body_face_mask))
         seamlessclone = cv2.seamlessClone(result, image, cv2.bitwise_not(body_face_mask), center_face2, cv2.NORMAL_CLONE)
-        for i in range(4):
+        for i in range(2):
             seamlessclone = cv2.seamlessClone(result, seamlessclone, cv2.bitwise_not(body_face_mask), center_face2, cv2.NORMAL_CLONE)
         
         image = result.copy()

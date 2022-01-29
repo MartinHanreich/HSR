@@ -9,10 +9,11 @@ import cv2
 import dlib
 import numpy as np
 import os
+import math
 from os.path import isfile
 from deepface import DeepFace
 
-VIDEO_TO_PROCESS = '.\\ss.mp4'
+VIDEO_TO_PROCESS = '.\\videos\\jt.mp4'
 
 FROM_VIDEO = True
 #FROM_VIDEO = False
@@ -120,6 +121,55 @@ def isEyeOpen(eye):
     ratio = (A + B) / (2 * C)
     return ratio > 0.5
 
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector)
+
+def angle_between(v1, v2):
+    """ Returns the angle in radians between vectors 'v1' and 'v2'::
+
+            >>> angle_between((1, 0, 0), (0, 1, 0))
+            1.5707963267948966
+            >>> angle_between((1, 0, 0), (1, 0, 0))
+            0.0
+            >>> angle_between((1, 0, 0), (-1, 0, 0))
+            3.141592653589793
+    """
+    v1_u = unit_vector(v1)
+    v2_u = unit_vector(v2)
+    return np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+
+def hasEyesOpen(landmarks, eye_range=range(36, 42)):
+    if len(eye_range) != 6:
+        print("Eye range is incorrect. Must have a range of exactly six!")
+        return False
+    
+    eye_horizon = np.array(landmarks[39]) - np.array(landmarks[36])
+    #, (38, 39), (40, 30)
+    check_pairs = [(37, 36), (41, 36)]
+    sum_angle = 0
+    for pair in check_pairs:
+        #eye_landmarks = landmarks[eye_range]
+        end = pair[0]
+        start = pair[1]
+        eye_upper = np.array(landmarks[end]) - np.array(landmarks[start])
+        angle = angle_between(eye_horizon, eye_upper)
+        sum_angle += angle
+    sum_angle_deg = sum_angle * (180.0 / math.pi)
+    print(sum_angle_deg)
+    return sum_angle_deg > 60
+
+def hasEyesOpenAlt(landmarks, eye_range=range(36, 42)):
+    if len(eye_range) != 6:
+        print("Eye range is incorrect. Must have a range of exactly six!")
+        return False
+    
+    eye_horizon = np.array(landmarks[39]) - np.array(landmarks[36])
+    eye_vert = np.array(landmarks[41]) - np.array(landmarks[37])
+    rat = np.linalg.norm(eye_vert) / np.linalg.norm(eye_horizon)
+    print(rat)
+    return rat > 0.3
+
 def getImagePaths():
     images_path = []
     IMG_PATH = ".\\imgs"
@@ -163,42 +213,46 @@ def process():
             if len(images) == 0:
                 break
             image = images.pop(0)
-        faces = detector(image)
+        image_cp = image.copy()
+        faces = detector(image_cp)
         if (prevImage is not None and len(faces) == 1) or not FROM_VIDEO:
-            analyze = DeepFace.analyze(image,actions=['emotion'], enforce_detection=False)
+            #analyze = DeepFace.analyze(image,actions=['emotion'], enforce_detection=False)
             #cv2.imshow('Image', image)
             #cv2.waitKey(0)
-            rect = detector(image)[0]
+            rect = detector(image_cp)[0]
         
             # This creates a with 68 pairs of integer values — these values are the (x, y)-coordinates of the facial structures 
-            landmarks = predictor(image, rect)
+            landmarks = predictor(image_cp, rect)
             
             # Uses the function declared previously to get a list of the landmark coordinates
             landmarks_points = getLandmarks(landmarks)
         
-            points =  np.float32(landmarks_points)
-            points_rel =  getRelativePoints(points)
+            points = np.float32(landmarks_points)
+            points_rel = getRelativePoints(points)
             
             #ind = getClosestMatchIndex(read_keypoints, points_rel)
             #read_img = cv2.imread(".\\imgs\\" + str(ind) + ".jpg")
             # and isEyeOpen(points[36:42])
             if FROM_VIDEO:
-                if isUnique(savedKeypoints, points_rel, 4.0):    
-                   # cv2.imshow('FrameCopy', read_img)
+                if isUnique(savedKeypoints, points_rel, 4.0) and hasEyesOpenAlt(landmarks_points):    
+                    cv2.imshow('FrameCopy', image_cp)
+                    cv2.waitKey(0)
+                    print("T")
+                    hasEyesOpenAlt(landmarks_points)
                     imgPath = '.\\imgs\\' + str(count) + '.jpg'
-                    cv2.imwrite(imgPath, image)
+                    cv2.imwrite(imgPath, image_cp)
                     count += 1
                     savedKeypoints.append(points_rel)
                     relevantImagePaths.append(imgPath)
-                    savedEmotions.append(list(analyze["emotion"].values()))
-                    print(analyze["dominant_emotion"])
+                    #savedEmotions.append(list(analyze["emotion"].values()))
+                    #print(analyze["dominant_emotion"])
             else:
                  savedKeypoints.append(points_rel)
                  relevantImagePaths.append(images_path[count])
-                 savedEmotions.append(list(analyze["emotion"].values()))
+                 #savedEmotions.append(list(analyze["emotion"].values()))
                  count += 1
             
-        prevImage = image.copy()
+        prevImage = image_cp.copy()
         key = cv2.waitKey(1)
         #'Escape' key to end
         if key == 27:
