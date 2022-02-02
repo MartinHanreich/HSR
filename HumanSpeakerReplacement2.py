@@ -12,10 +12,11 @@ from HSR_Processing import readKeypoints, getClosestMatchFilename, getRelativePo
 
 USE_CAM = False
 #.\\man.jpg
-REPLACEMENT_IMG = ''
+REPLACEMENT_IMG = '.\\man.jpg'
+#REPLACEMENT_IMG = ''
 #Only used if USE_CAM = False
-VIDEO_TO_PROCESS = '.\\videos\\sm.mp4'
-FLIP = False
+VIDEO_TO_PROCESS = '.\\videos\\jc.mp4'
+FLIP = True
 
 cv2.destroyAllWindows()
 
@@ -24,7 +25,6 @@ saved_keypoints = {}
 if REPLACEMENT_IMG == "":
     read_keypoints = readKeypoints()
 
-        
 def get_index(arr):
     index = arr[0][0]
     #if arr[0]:
@@ -73,6 +73,17 @@ def drawLines(points, image, color):
     cv2.line(image, points[len(points) - 1], points[0], color, 1)
     return image
 
+def getKeypointsForRanges(keypoints, list_ranges):
+    sel_keypoints = []
+    for i in range(0, 69):
+        inside = False
+        for rng in list_ranges:
+            if i in rng:
+                inside=True
+        if inside:
+            sel_keypoints.append(keypoints[i])
+    return sel_keypoints
+            
 #Initialize the dlib components for the landmark detection
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(".\\shape_predictor_68_face_landmarks.dat")
@@ -94,8 +105,15 @@ mouth_kp_range = range(60, 68)
 mouth_kp_range_outer = range(48, 59)
 eye_kp_range = range(36, 48)
 no_mouth = range(0, 48)
+no_inner_mouth = range(0, 59)
 image_or = image.copy()
+eye_range= range(36, 47)
+outline_range = range(0, 26)
+basenose_range = range(29, 30)
+nose_range = range(27, 36)
+top_range = range(20, 23)
 
+run = 0
 #try:
 while(True):
     # Getting landmarks for the face that will have the first one swapped into
@@ -108,6 +126,7 @@ while(True):
         break
     if FLIP:
         image = cv2.flip(image, 1)
+    #cv2.imwrite('.\\cont\\image_base_' + str(run) + '.jpg', image)
     faces = detector(image)
     if len(faces) == 1:
         image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -154,14 +173,13 @@ while(True):
             file = ""
             IMAGE_TO_LOAD = REPLACEMENT_IMG
         faceSwap = cv2.imread(IMAGE_TO_LOAD)
-        cv2.imshow('FaceSwap', faceSwap)
+        #cv2.imshow('FaceSwap', faceSwap)
         faceSwap_gray = cv2.cvtColor(faceSwap, cv2.COLOR_BGR2GRAY)        
         height_swap, width_swap, _ = faceSwap.shape
         
         mask = np.zeros((faceSwap.shape[0], faceSwap.shape[1]), np.uint8)
         
-        #cv2.imshow('FaceSwap', faceSwap)
-        #cv2.waitKey()
+        cv2.imshow('FaceSwap', faceSwap)
         if file not in saved_keypoints:
             faces = detector(faceSwap)
             keypoints = []
@@ -193,12 +211,16 @@ while(True):
             continue
         
         points2 = np.array(keypoints, np.int32)
-        convexHull = cv2.convexHull(points2)
+        convexHull = cv2.convexHull(points2[no_mouth])
         face_image_1 = cv2.bitwise_and(faceSwap, faceSwap, mask=mask)
         rect = cv2.boundingRect(convexHull)
         
         #Triangulate
         subdiv = cv2.Subdiv2D(rect) # Creates an instance of Subdiv2D
+        considered_ranges = [outline_range, nose_range, mouth_kp_range_outer, eye_range]
+        #considered_ranges = [outline_range, mouth_kp_range_outer]
+        keypoints = getKeypointsForRanges(keypoints, considered_ranges)
+        landmarks_points2 = getKeypointsForRanges(landmarks_points2, considered_ranges)
         subdiv.insert(keypoints) # Insert points into subdiv
         triangles = subdiv.getTriangleList()
         triangles = np.array(triangles, dtype=np.int32)
@@ -208,16 +230,15 @@ while(True):
         points = np.array(keypoints, np.int32)
         
         for triangle in triangles :
-        
             # Gets the vertex of the triangle
             pt1 = (triangle[0], triangle[1])
             pt2 = (triangle[2], triangle[3])
             pt3 = (triangle[4], triangle[5])
             
             # Draws a line for each side of the triangle
-            #cv2.line(face_cp, pt1, pt2, (255, 255, 255), 3,  0)
-            #cv2.line(face_cp, pt2, pt3, (255, 255, 255), 3,  0)
-            #cv2.line(face_cp, pt3, pt1, (255, 255, 255), 3,  0)
+            #cv2.line(faceSwap, pt1, pt2, (255, 0, 0), 1,  0)
+            #cv2.line(faceSwap, pt2, pt3, (255, 0, 0), 1,  0)
+            #cv2.line(faceSwap, pt3, pt1, (255, 0, 0), 1,  0)
         
             index_pt1 = np.where((points == pt1).all(axis=1))
             index_pt1 = get_index(index_pt1)
@@ -230,8 +251,7 @@ while(True):
             if index_pt1 is not None and index_pt2 is not None and index_pt3 is not None:
                 vertices = [index_pt1, index_pt2, index_pt3]
                 indexes_triangles.append(vertices)
-        
-        
+        #key = cv2.waitKey()
         if len(indexes_triangles) == 0:
             print("Not able to extract face from comparison image!")
             
@@ -243,80 +263,82 @@ while(True):
              #    triangle[2] in mouth_kp_range): 
              #    continue
             
+            if True or (triangle[0] not in top_range or triangle[1] not in top_range or triangle[2] not in top_range):
         #     # Coordinates of the first person's delaunay triangles
-             pt1 = keypoints[triangle[0]]
-             pt2 = keypoints[triangle[1]]
-             pt3 = keypoints[triangle[2]]
+                 pt1 = keypoints[triangle[0]]
+                 pt2 = keypoints[triangle[1]]
+                 pt3 = keypoints[triangle[2]]
+            
+            #     # Gets the delaunay triangles
+                #Get bounding rect for the current triangle
+                 (x, y, widht, height) = cv2.boundingRect(np.array([pt1, pt2, pt3], np.int32))
+                 
+                 #Get the part of the image where the rectangle is located
+                 cropped_triangle = faceSwap[y: y+height, x: x+widht]
+            
+            #     # Fills triangle to generate the mask
+                 #cropped_mask = np.zeros((height, widht), np.uint8)
+                 points = np.array([[pt1[0]-x, pt1[1]-y], [pt2[0]-x, pt2[1]-y], [pt3[0]-x, pt3[1]-y]], np.int32) 
+                 #cv2.fillConvexPoly(cropped_mask, points, 255)
+            
+            #     # Draws lines for the triangles
+            #     #cv2.line(lines_space_mask, pt1, pt2, 255)
+            #     #cv2.line(lines_space_mask, pt2, pt3, 255)
+            #     #cv2.line(lines_space_mask, pt1, pt3, 255)
+            
+            #     #lines_space = cv2.bitwise_and(faceSwap, faceSwap, mask=lines_space_mask)
+            
+            #     # Calculates the delaunay triangles of the second person's face
+                 pt1 = landmarks_points2[triangle[0]]
+                 pt2 = landmarks_points2[triangle[1]]
+                 pt3 = landmarks_points2[triangle[2]]
+                 
+                 #bound_min = (0, 0)
+                 #With images the y component is first while for the points it is switched
+                 #bound_max = (body_new_face.shape[1], body_new_face.shape[0])
+                 
+                 #if (pt1 < bound_min or pt1 >= bound_max or 
+                 #    pt2 < bound_min or pt2 >= bound_max or
+                 #    pt3 < bound_min or pt3 >= bound_max):
+                 #    continue
+            
+            #     # Gets the delaunay triangles
+                 (x, y, widht, height) = cv2.boundingRect(np.array([pt1, pt2, pt3], np.int32))
+                 cropped_mask2 = np.zeros((height,widht), np.uint8)
+            
+            #     # Fills triangle to generate the mask
+                 points2 = np.array([[pt1[0]-x, pt1[1]-y], [pt2[0]-x, pt2[1]-y], [pt3[0]-x, pt3[1]-y]], np.int32)
+                 cv2.fillConvexPoly(cropped_mask2, points2, 255)
+            
+            #     # Deforms the triangles to fit the subject's face : https://docs.opencv.org/3.4/d4/d61/tutorial_warp_affine.html
+                 points =  np.float32(points)
+                 points2 = np.float32(points2)
+                 M = cv2.getAffineTransform(points, points2)  # Warps the content of the first triangle to fit in the second one
+                 dist_triangle = cv2.warpAffine(cropped_triangle, M, (widht, height), None, flags = cv2.INTER_LINEAR, borderMode = cv2.BORDER_REFLECT_101)
+                 dist_triangle = cv2.bitwise_and(dist_triangle, dist_triangle, mask=cropped_mask2)
+                 
+                 #M = cv2.getPerspectiveTransform(points, points2)
+                 #dist_triangle = cv2.warpPerspective(cropped_triangle, M, (widht, height),flags=cv2.INTER_LINEAR)
+                 #dist_triangle = cv2.bitwise_and(dist_triangle, dist_triangle, mask=cropped_mask2)
+                 
+            #     # Joins all the distorted triangles to make the face mask to fit in the second person's features
+                 body_new_face_rect_area = body_new_face[y: y+height, x: x+widht]
+                 body_new_face_rect_area_gray = cv2.cvtColor(body_new_face_rect_area, cv2.COLOR_BGR2GRAY)
+            
+            #     # Creates a mask
+                 masked_triangle = cv2.threshold(body_new_face_rect_area_gray, 1, 255, cv2.THRESH_BINARY_INV)
+                 #print(len(masked_triangle))
+                 if (masked_triangle[1].shape[0] != dist_triangle.shape[0] or
+                     masked_triangle[1].shape[1] != dist_triangle.shape[1]):
+                     continue
+                 dist_triangle = cv2.bitwise_and(dist_triangle, dist_triangle, mask=masked_triangle[1])
+            
+                # Adds the piece to the face mask
+                 body_new_face_rect_area = cv2.add(body_new_face_rect_area, dist_triangle)
+                 body_new_face[y: y+height, x: x+widht] = body_new_face_rect_area
+                 #cv2.imshow('FrameCopy', body_new_face)
+                 #key = cv2.waitKey()
         
-        #     # Gets the delaunay triangles
-            #Get bounding rect for the current triangle
-             (x, y, widht, height) = cv2.boundingRect(np.array([pt1, pt2, pt3], np.int32))
-             
-             #Get the part of the image where the rectangle is located
-             cropped_triangle = faceSwap[y: y+height, x: x+widht]
-        
-        #     # Fills triangle to generate the mask
-             #cropped_mask = np.zeros((height, widht), np.uint8)
-             points = np.array([[pt1[0]-x, pt1[1]-y], [pt2[0]-x, pt2[1]-y], [pt3[0]-x, pt3[1]-y]], np.int32) 
-             #cv2.fillConvexPoly(cropped_mask, points, 255)
-        
-        #     # Draws lines for the triangles
-        #     #cv2.line(lines_space_mask, pt1, pt2, 255)
-        #     #cv2.line(lines_space_mask, pt2, pt3, 255)
-        #     #cv2.line(lines_space_mask, pt1, pt3, 255)
-        
-        #     #lines_space = cv2.bitwise_and(faceSwap, faceSwap, mask=lines_space_mask)
-        
-        #     # Calculates the delaunay triangles of the second person's face
-             pt1 = landmarks_points2[triangle[0]]
-             pt2 = landmarks_points2[triangle[1]]
-             pt3 = landmarks_points2[triangle[2]]
-             
-             #bound_min = (0, 0)
-             #With images the y component is first while for the points it is switched
-             #bound_max = (body_new_face.shape[1], body_new_face.shape[0])
-             
-             #if (pt1 < bound_min or pt1 >= bound_max or 
-             #    pt2 < bound_min or pt2 >= bound_max or
-             #    pt3 < bound_min or pt3 >= bound_max):
-             #    continue
-        
-        #     # Gets the delaunay triangles
-             (x, y, widht, height) = cv2.boundingRect(np.array([pt1, pt2, pt3], np.int32))
-             cropped_mask2 = np.zeros((height,widht), np.uint8)
-        
-        #     # Fills triangle to generate the mask
-             points2 = np.array([[pt1[0]-x, pt1[1]-y], [pt2[0]-x, pt2[1]-y], [pt3[0]-x, pt3[1]-y]], np.int32)
-             cv2.fillConvexPoly(cropped_mask2, points2, 255)
-        
-        #     # Deforms the triangles to fit the subject's face : https://docs.opencv.org/3.4/d4/d61/tutorial_warp_affine.html
-             points =  np.float32(points)
-             points2 = np.float32(points2)
-             M = cv2.getAffineTransform(points, points2)  # Warps the content of the first triangle to fit in the second one
-             dist_triangle = cv2.warpAffine(cropped_triangle, M, (widht, height), None, flags = cv2.INTER_LINEAR, borderMode = cv2.BORDER_REFLECT_101)
-             dist_triangle = cv2.bitwise_and(dist_triangle, dist_triangle, mask=cropped_mask2)
-             
-             #M = cv2.getPerspectiveTransform(points, points2)
-             #dist_triangle = cv2.warpPerspective(cropped_triangle, M, (widht, height),flags=cv2.INTER_LINEAR)
-             #dist_triangle = cv2.bitwise_and(dist_triangle, dist_triangle, mask=cropped_mask2)
-             
-        #     # Joins all the distorted triangles to make the face mask to fit in the second person's features
-             body_new_face_rect_area = body_new_face[y: y+height, x: x+widht]
-             body_new_face_rect_area_gray = cv2.cvtColor(body_new_face_rect_area, cv2.COLOR_BGR2GRAY)
-        
-        #     # Creates a mask
-             masked_triangle = cv2.threshold(body_new_face_rect_area_gray, 1, 255, cv2.THRESH_BINARY_INV)
-             #print(len(masked_triangle))
-             if (masked_triangle[1].shape[0] != dist_triangle.shape[0] or
-                 masked_triangle[1].shape[1] != dist_triangle.shape[1]):
-                 continue
-             dist_triangle = cv2.bitwise_and(dist_triangle, dist_triangle, mask=masked_triangle[1])
-        
-            # Adds the piece to the face mask
-             body_new_face_rect_area = cv2.add(body_new_face_rect_area, dist_triangle)
-             body_new_face[y: y+height, x: x+widht] = body_new_face_rect_area
-             #cv2.imshow('FrameCopy', dist_triangle)
-             #key = cv2.waitKey()
         
         # """Finally, we can swap the face masks:"""
         body_new_face = cv2.fillConvexPoly(body_new_face, convexhull_mouth, 0)
@@ -326,6 +348,10 @@ while(True):
         body_face_mask = cv2.bitwise_not(body_head_mask)
         body_face_mask = cv2.fillConvexPoly(body_face_mask, convexhull_mouth, 255)
         body_face_mask = drawLines(convexhull_mouth, body_face_mask, (255, 255, 255))
+        
+        
+        #cv2.imshow('ManFace', body_face_mask)
+        #cv2.imwrite('.\\cont\\man_mask_' + str(run) + '.jpg', body_face_mask)
         
         #cv2.imshow('FrameCopy', body_new_face)
         #key = cv2.waitKey(0)
@@ -345,17 +371,21 @@ while(True):
         #body_face_mask = cv2.fillConvexPoly(body_face_mask, convexhull_mouth_outer, 255)
         #cv2.imshow('body_face_mask', cv2.bitwise_not(body_face_mask))
         seamlessclone = cv2.seamlessClone(result, image, cv2.bitwise_not(body_face_mask), center_face2, cv2.NORMAL_CLONE)
-        for i in range(2):
+        for i in range(3):
             seamlessclone = cv2.seamlessClone(result, seamlessclone, cv2.bitwise_not(body_face_mask), center_face2, cv2.NORMAL_CLONE)
         
         image = result.copy()
+        #cv2.imwrite('.\\cont\\man_image_' + str(run) + '.jpg', image)
         image = seamlessclone
+        #cv2.imwrite('.\\cont\\man_seamless_' + str(run) + '.jpg', image)
         #image = draw_mouth(image, landmarks_points2)
         video.write(image)
         img_prev = image.copy()
     
     cv2.imshow('FrameCopy', image)
+    #cv2.imwrite('.\\cont\\image_res' + str(run) + '.jpg', image)
     key = cv2.waitKey(1)
+    run += 1
     #'Escape' key to end
     if key == 27:
         break

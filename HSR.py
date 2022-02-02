@@ -74,7 +74,7 @@ eye_right_range = range(36, 42)
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(".\\shape_predictor_68_face_landmarks.dat")
 
-image = cv2.imread('.\\5.jpg')
+image = cv2.imread('.\\10.jpg')
 
 faces = detector(image)
 keypoints = []
@@ -94,12 +94,12 @@ for face in faces:
     #keypoints = []
     
     mouth_kp = []
-    start = 36
-    end = 41
-    eye_range = range(start, end + 1)
+    start = 0
+    end = 48
+    eye_range = range(start, end)
     #eye_range = eye_right_range
     for n in eye_range:
-        #print(n)
+        print(n)
         #if n >= start and n <= end:
         x = keypoints[n][0]
         y = keypoints[n][1]
@@ -107,11 +107,12 @@ for face in faces:
         yt = keypoints[n+1][1]
         #cv2.circle(image, (x, y), 3, (255, 0, 0), -1)
         #cv2.line(image, (x, y), (xt, yt), (20, 255, 20), 2)
-        cv2.circle(image, (x, y), 2, (255, 0, 0), -1)
+        cv2.circle(image, (x, y), 2, (0, 0, 255), -1)
         mouth_kp.append((x, y))
     #cv2.line(image, (keypoints[end][0], keypoints[end][1]), (keypoints[start][0], keypoints[start][1]), (20, 255, 20), 2)
         #mouth_kp.append((x, y))
     
+cv2.imwrite("man_base.jpg", image)
 cv2.imshow("ImageWithLandmarks", image)
 cv2.waitKey()
 cv2.destroyAllWindows()

@@ -233,10 +233,11 @@ def process():
             #ind = getClosestMatchIndex(read_keypoints, points_rel)
             #read_img = cv2.imread(".\\imgs\\" + str(ind) + ".jpg")
             # and isEyeOpen(points[36:42])
+            #
             if FROM_VIDEO:
                 if isUnique(savedKeypoints, points_rel, 4.0) and hasEyesOpenAlt(landmarks_points):    
                     cv2.imshow('FrameCopy', image_cp)
-                    cv2.waitKey(0)
+                    #cv2.waitKey(0)
                     print("T")
                     hasEyesOpenAlt(landmarks_points)
                     imgPath = '.\\imgs\\' + str(count) + '.jpg'
