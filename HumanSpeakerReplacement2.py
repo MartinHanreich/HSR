@@ -12,11 +12,11 @@ from HSR_Processing import readKeypoints, getClosestMatchFilename, getRelativePo
 
 USE_CAM = False
 #.\\man.jpg
-REPLACEMENT_IMG = '.\\man.jpg'
+REPLACEMENT_IMG = '.\\images\\ck.jpg'
 #REPLACEMENT_IMG = ''
 #Only used if USE_CAM = False
-VIDEO_TO_PROCESS = '.\\videos\\jc.mp4'
-FLIP = True
+VIDEO_TO_PROCESS = '.\\videos\\sm.mp4'
+FLIP = False
 
 cv2.destroyAllWindows()
 
@@ -98,7 +98,7 @@ else:
     #image = cv2.imread('.\\man_speaking.png')
 
 
-video = cv2.VideoWriter('.\\landmark_detection.mp4', -1, 15, (image.shape[1], image.shape[0]))
+video = cv2.VideoWriter('.\\human_speaker_replacement.mp4', -1, 15, (image.shape[1], image.shape[0]))
 img_prev = None
 full_range = range(0, 68)
 mouth_kp_range = range(60, 68)
@@ -355,10 +355,10 @@ while(True):
         
         #cv2.imshow('FrameCopy', body_new_face)
         #key = cv2.waitKey(0)
-        image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
+        image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         face_hsv = cv2.cvtColor(body_new_face, cv2.COLOR_BGR2HSV)
-        face_hsv[:, :, 0] = image_hsv[:, :, 0]
-        #body_new_face = cv2.cvtColor(face_hsv, cv2.COLOR_HSV2BGR)
+        face_hsv[0, :, :] = image_hsv[0, :, :]
+        body_new_face = cv2.cvtColor(face_hsv, cv2.COLOR_HSV2BGR)
         cv2.imshow('Mask', body_new_face)
         #image = np.zeros((h, w, channels), np.uint8)
         body_maskless = cv2.bitwise_and(image, image, mask=body_face_mask)
